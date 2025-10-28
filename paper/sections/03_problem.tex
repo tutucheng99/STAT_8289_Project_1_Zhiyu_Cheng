@@ -25,7 +25,7 @@ In offline RL, the agent learns exclusively from a fixed dataset $\mathcal{D} = 
 
 Conservative Q-Learning (CQL) \citep{kumar2020cql} addresses this via pessimism, penalizing Q-values for OOD actions:
 \begin{equation}
-\min_Q \, \mathbb{E}_{(s,a,r,s') \sim \mathcal{D}} \left[ \left( Q(s, a) - \left( r + \gamma \max_{a'} Q(s', a') \right) \right)^2 \right] + \alpha \cdot \mathbb{E}_{s \sim \mathcal{D}} \left[ \log \sum_{a} \exp(Q(s, a)) - \mathbb{E}_{a \sim \pi_{\text{behav}}} [Q(s, a)] \right],
+\min_Q \, \mathbb{E}_{(s,a,r,s') \sim \mathcal{D}} \left[ \left( Q(s, a) - \left( r + \gamma \max_{a'} Q(s', a') \right) \right)^2 \right] + \alpha \cdot \mathbb{E}_{s \sim \mathcal{D}} \left[ \log \sum_{a} \exp(Q(s, a)) - \mathbb{E}_{a \sim \pi_\beta} [Q(s, a)] \right],
 \end{equation}
 where $\alpha > 0$ controls conservatism strength. Behavior Cloning (BC) avoids distributional shift by imitating the behavioral policy via supervised learning: $\pi_{\text{BC}} = \arg\max_\pi \mathbb{E}_{(s, a) \sim \mathcal{D}} [\log \pi(a | s)]$, but cannot improve beyond the behavioral policy's performance.
 
