@@ -4,41 +4,24 @@
 
 \section{Methods}\label{sec:methods}
 
-This section describes the experimental setup, including the simulation environment, the three offline RL algorithms evaluated (Behavior Cloning, Conservative Q-Learning, and Deep Q-Network), the LEG interpretability analysis method, and the evaluation protocol. We use the gym-sepsis benchmark environment \citep{raghu2017sepsis_drl} as a standardized testbed for comparing algorithm interpretability, enabling fair evaluation across methods on a common clinical decision-making task with established state/action representations.
+We describe the experimental setup: the gym-sepsis simulation environment, offline and online RL algorithms, LEG interpretability analysis, and evaluation protocol.
 
 % ============================================================
 \subsection{Environment and Data}\label{sec:methods:env}
 
 \subsubsection{Gym-Sepsis Simulator}
 
-We use the Gym-Sepsis environment \citep{raghu2017sepsis_drl}, an OpenAI Gym-compatible reinforcement learning simulator for sepsis treatment in the intensive care unit (ICU). The simulator's state transition model, episode termination dynamics, and outcome model were trained on the MIMIC-III dataset \citep{johnson2016mimic3}, which contains de-identified clinical data from over 40,000 ICU admissions at Beth Israel Deaconess Medical Center between 2001 and 2012.
+We use Gym-Sepsis \citep{raghu2017sepsis_drl}, an RL simulator for ICU sepsis treatment trained on MIMIC-III data \citep{johnson2016mimic3}.
 
 \textbf{State Space.} At each timestep, the state is a 46-dimensional vector spanning laboratory values (lactate, creatinine, platelet count, etc.), vital signs (blood pressure, heart rate, SpO$_2$, etc.), demographics (age, gender, race), clinical severity scores (SOFA, LODS, SIRS, qSOFA, Elixhauser), and treatment status (mechanical ventilation, blood culture). The SOFA score \citep{vincent1996sofa} ranges from 0--24, with higher values indicating greater organ dysfunction; we use SOFA for severity stratification in Section~\ref{sec:methods:eval}.
 
-\textbf{Action Space.} The action space is defined by a discrete $5 \times 5$ grid over medical interventions, spanning intravenous (IV) fluid and maximum vasopressor (VP) dosage within each 4-hour window. Each drug type is discretized into quartile bins based on all non-zero dosages observed in the MIMIC-III data, with an additional bin 0 representing no medication. Specifically:
-\begin{equation}
-\text{action} = 5 \times \text{IV\_bin} + \text{VP\_bin}, \quad \text{IV\_bin}, \text{VP\_bin} \in \{0, 1, 2, 3, 4\}
-\end{equation}
-resulting in 25 possible actions encoded as integers from 0 to 24. For example, action 0 corresponds to (IV=0, VP=0, i.e., no treatment), while action 24 corresponds to (IV=4, VP=4, i.e., maximum dosages for both drugs).
+\textbf{Action Space.} A discrete $5 \times 5$ grid over IV fluid and vasopressor dosage bins (action $ = 5 \times \text{IV\_bin} + \text{VP\_bin}$), yielding 25 actions.
 
-\textbf{Episode Dynamics.} Each timestep corresponds to a 4-hour window in the ICU. An episode spans the entire ICU stay of a patient, with the time horizon determined by the length of the trajectory until discharge (survival) or death. Episodes terminate when the patient outcome is determined by the simulator's learned outcome model.
-
-\textbf{Reward Function.} We adopt the simple sparse reward function for all experiments to focus on long-term outcomes rather than intermediate clinical signals. The immediate reward is defined as:
-\begin{equation}
-r_t = \begin{cases}
-+15 & \text{if episode terminates in discharge (survival)} \\
--15 & \text{if episode terminates in death} \\
-0 & \text{for all intermediate steps}
-\end{cases}
-\end{equation}
-
-This reward structure encourages policies to maximize patient survival while avoiding unnecessary interventions. Alternative reward functions incorporating intermediate feedback (e.g., SOFA score changes, lactate levels \citep{raghu2017sepsis_drl}) were explored during preliminary experiments but are not the focus of this comparative study.
+\textbf{Episode Dynamics \& Reward.} Episodes span ICU stays (4-hour timesteps) until discharge or death. Sparse reward: $r_t = +15$ (survival), $-15$ (death), $0$ (intermediate).
 
 \subsubsection{Offline Training Dataset}
 
-To enable offline RL training, we generated an offline dataset by rolling out a heuristic policy in the Gym-Sepsis simulator for 10,000 episodes. The heuristic policy was designed based on clinical guidelines \citep{rhodes2017ssc, seymour2017sepsis_criteria} with threshold-based decision rules. Specifically, the policy escalates IV fluid administration when systolic blood pressure falls below 100 mmHg or lactate exceeds 2.0 mmol/L, escalates vasopressor dosing when mean arterial pressure drops below 65 mmHg despite fluid resuscitation, and de-escalates treatment when hemodynamic stability is achieved (systolic blood pressure exceeding 120 mmHg and lactate below 2.0 mmol/L). This heuristic policy achieved a 94.6\% survival rate on 500 evaluation episodes, providing a strong behavioral policy for offline RL algorithms to learn from. The resulting dataset contains approximately 100,000 state-action-reward-next\_state transitions, with an average episode length of 10 timesteps.
-
-\textbf{Data Partitioning.} To support reproducible offline RL training, we partition the 10,000 simulated episodes as follows: 9,000 episodes (90\%) are allocated to the training set for policy learning, 500 episodes (5\%) form the validation set for hyperparameter tuning and early stopping, and the remaining 500 episodes (5\%) constitute the test set for final evaluation. All results reported in Section~\ref{sec:results} are computed exclusively on the held-out test set to ensure unbiased performance estimates. BC and CQL are trained on the training set, with validation set performance monitored to prevent overfitting. For DQN, which collects data online, the same 500-episode test set is used for evaluation to enable fair comparison across algorithms.
+We generated an offline dataset of 10,000 episodes (~100K transitions) using a heuristic policy based on clinical guidelines \citep{rhodes2017ssc, seymour2017sepsis_criteria}, achieving 94.6\% survival. Data partitioning: 9,000 train, 500 validation, 500 test episodes.
 
 % ============================================================
 \subsection{Algorithms}\label{sec:methods:algos}
@@ -123,15 +106,11 @@ We evaluate algorithm performance using the following metrics:
 
 \subsubsection{Primary Outcome Metrics}
 
-We evaluate algorithm performance using three primary metrics. The \textbf{survival rate}, defined as the proportion of episodes ending in hospital discharge rather than death, serves as the primary clinical endpoint. The \textbf{average return} is computed as the mean cumulative reward across all evaluation episodes:
-\begin{equation}
-\bar{R} = \frac{1}{N} \sum_{i=1}^N \sum_{t=0}^{T_i} r_{i,t}
-\end{equation}
-where $N$ is the number of evaluation episodes and $T_i$ is the length of episode $i$. Finally, the \textbf{average episode length}, measured as the mean number of timesteps per episode, provides an indication of treatment duration and efficiency.
+\textbf{Survival rate} (proportion of episodes ending in discharge), \textbf{average return} ($\bar{R} = \frac{1}{N} \sum_i \sum_t r_{i,t}$), and \textbf{average episode length}.
 
 \subsubsection{SOFA-Stratified Analysis}
 
-To assess algorithm performance across patient severity levels, we stratify evaluation episodes by baseline SOFA score into three clinically meaningful groups. Episodes with SOFA scores of 5 or less are classified as \textbf{low SOFA} (least severe patients), those with scores between 6 and 10 as \textbf{medium SOFA} (moderate severity), and those with scores of 11 or higher as \textbf{high SOFA} (most severe, highest mortality risk). For each stratum, we report survival rate and sample size. This stratification reveals whether algorithms excel on specific patient subgroups, which has important implications for clinical deployment, as policies that perform well overall but fail on high-severity patients may not be suitable for ICU use.
+Episodes stratified by SOFA score: \textbf{low} ($\leq$5), \textbf{medium} (6-10), \textbf{high} ($\geq$11), reporting survival rate per stratum.
 
 \subsubsection{Statistical Significance Testing}
 
@@ -148,9 +127,7 @@ The random policy selects actions uniformly at random from the 25-action space a
 
 \subsubsection{Heuristic Policy}
 
-The heuristic policy implements threshold-based clinical decision rules derived from sepsis treatment guidelines \citep{rhodes2017ssc}. The policy first extracts key physiological features including systolic blood pressure (SysBP), mean arterial blood pressure (MeanBP), lactate levels, and SOFA score. The IV fluid dosing bin is then determined hierarchically: if SysBP falls below 90 mmHg or lactate exceeds 4.0 mmol/L, the maximum IV fluid bin (4) is selected; otherwise, if SysBP is below 100 mmHg or lactate exceeds 2.0 mmol/L, bin 3 is chosen; if SysBP is below 110 mmHg, bin 2 is selected; and for stable patients, a maintenance fluid rate (bin 1) is used. Vasopressor dosing follows similar logic based on mean arterial pressure: bin 3 is selected when MeanBP drops below 65 mmHg (the clinical threshold for hypotension), bin 2 when MeanBP is between 65 and 70 mmHg, and no vasopressor (bin 0) is given when blood pressure is adequate. The final action is computed as $5 \times \text{IV\_bin} + \text{VP\_bin}$, encoding both treatment decisions into a single discrete action.
-
-This heuristic policy achieved 94.6\% survival on 500 evaluation episodes, demonstrating that simple threshold-based rules perform surprisingly well in this simulator. However, as we will show, the heuristic lacks the adaptability and personalization that RL algorithms can provide.
+Implements threshold-based rules from sepsis guidelines \citep{rhodes2017ssc}: escalate IV fluids when SysBP$<$100 mmHg or lactate$>$2.0 mmol/L; escalate vasopressors when MeanBP$<$65 mmHg. Achieved 94.6\% survival.
 
 \subsubsection{Evaluation Protocol}
 
