@@ -28,13 +28,14 @@ Heuristic       & 94.6               & 13.38 $\pm$ 6.78    & 9.5 $\pm$ 1.2      
 \multicolumn{5}{l}{\textit{Offline RL}} \\
 BC              & 94.2               & 13.26 $\pm$ 7.01    & 9.5 $\pm$ 0.6       & Offline \\
 CQL             & 94.0               & 13.20 $\pm$ 7.12    & 9.5 $\pm$ 0.5       & Offline \\
-DQN             & 94.0               & 13.20 $\pm$ 7.12    & 7.8 $\pm$ 1.2       & Offline \\
+DQN             & 94.0               & 13.20 $\pm$ 7.12    & 7.8 $\pm$ 1.2       & Online$^\dagger$ \\
 \midrule
 \multicolumn{5}{l}{\textit{Online RL}} \\
 DDQN-Attention  & \textbf{95.4}      & 13.62 $\pm$ 6.28    & 7.9 $\pm$ 1.0       & Online \\
 DDQN-Residual   & 94.2               & 13.26 $\pm$ 7.01    & 9.0 $\pm$ 0.8       & Online \\
 SAC             & 94.8               & 13.44 $\pm$ 6.66    & 7.7 $\pm$ 1.2       & Online \\
 \bottomrule
+\multicolumn{5}{l}{\scriptsize $^\dagger$Trained online, evaluated offline (hybrid baseline for comparison)} \\
 \end{tabular}
 \end{table}
 
@@ -108,8 +109,9 @@ DDQN-Attention     & Online   & 3.57   & qSOFA    & Moderate  & Requires validat
 DDQN-Residual      & Online   & 2.93   & INR      & Moderate  & Requires validation \\
 SAC                & Online   & 1.17   & INR      & Limited   & Limited suitability \\
 BC                 & Offline  & 0.78   & qSOFA    & Mixed     & Requires validation \\
-DQN                & Offline  & 0.069  & INR      & Poor      & Not suitable \\
+DQN                & Online$^\dagger$  & 0.069  & INR      & Poor      & Not suitable \\
 \bottomrule
+\multicolumn{6}{l}{\scriptsize $^\dagger$Trained online, evaluated offline (see Section~\ref{sec:discussion:limitations})} \\
 \end{tabular}
 \end{table}
 
