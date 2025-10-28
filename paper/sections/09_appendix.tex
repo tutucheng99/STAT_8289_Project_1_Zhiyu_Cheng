@@ -1,0 +1,44 @@
+% ============================================================
+% APPENDIX
+% ============================================================
+
+\appendix
+
+\section{LEG Interpretability Analysis Details}\label{appendix:leg}
+
+\subsection{LEG Method Formulation}
+
+Given a state $s_0$ and a policy $\pi$ (or Q-function $Q$), LEG approximates the gradient $\nabla_s Q(s_0, \pi(s_0))$ by sampling perturbations around $s_0$ and performing linear regression. The procedure is as follows:
+
+\begin{enumerate}
+    \item \textbf{Perturbation Sampling:} Generate $n$ perturbations $\{Z_i\}_{i=1}^n$ from a multivariate Gaussian distribution: $Z_i \sim \mathcal{N}(0, \sigma^2 I)$, where $\sigma$ controls the perturbation magnitude.
+
+    \item \textbf{Policy Evaluation:} For each perturbation, construct a perturbed state $s_i = s_0 + Z_i$ and compute the Q-value difference:
+    \begin{equation}
+    y_i = Q(s_i, \pi(s_i)) - Q(s_0, \pi(s_0))
+    \end{equation}
+
+    \item \textbf{Ridge Regression:} Estimate the gradient $\hat{\gamma}$ by solving:
+    \begin{equation}
+    \hat{\gamma} = \arg\min_{\gamma} \frac{1}{n} \sum_{i=1}^n \left( y_i - \gamma^\top Z_i \right)^2 + \lambda \|\gamma\|^2
+    \end{equation}
+    which has a closed-form solution:
+    \begin{equation}
+    \hat{\gamma} = \left( \Sigma + \lambda I \right)^{-1} \left( \frac{1}{n} \sum_{i=1}^n y_i Z_i \right)
+    \end{equation}
+    where $\Sigma = \frac{1}{n} \sum_{i=1}^n Z_i Z_i^\top$ is the sample covariance matrix.
+
+    \item \textbf{Saliency Scores:} The LEG saliency score for feature $j$ is $\hat{\gamma}_j$, representing the approximate gradient $\frac{\partial Q}{\partial s_j}$ at $s_0$.
+\end{enumerate}
+
+Positive saliency scores indicate that increasing the feature value would increase the Q-value (encouraging more aggressive treatment), while negative scores suggest the opposite.
+
+\subsection{Implementation Details}
+
+We apply LEG analysis to all algorithms (BC, CQL, DQN, DDQN-Attention, DDQN-Residual, SAC) using a unified implementation. For algorithms with explicit Q-functions (CQL, DQN, DDQN variants, SAC), LEG directly perturbs states and measures Q-value changes. For BC, which outputs action probabilities $\pi(a|s)$ without explicit Q-values, we construct a pseudo-Q-value proxy as $Q_{\text{BC}}(s, a) = \log \pi(a|s)$. This logarithmic mapping is justified because BC's training objective $-\log \pi(a|s)$ is equivalent to maximum likelihood estimation, and the log-probability naturally reflects the policy's "preference" for each action—higher log-probabilities correspond to actions the policy considers more valuable. While this proxy is less grounded than explicit Q-values learned via Bellman backups, it enables model-agnostic LEG analysis and produces interpretable saliency patterns that align with BC's decision logic. Alternative proxies, such as using raw action probabilities $\pi(a|s)$ or constructing Q-values via advantage function estimation, yielded qualitatively similar interpretability results in preliminary analysis.
+
+The LEG analysis uses $n = 1,000$ perturbation samples with standard deviation $\sigma = 0.1$ (approximately 10\% of the typical feature standard deviation). Ridge regularization with coefficient $\lambda = 10^{-6}$ is applied for numerical stability when inverting the covariance matrix. For each algorithm, we analyze 10 representative states sampled uniformly across SOFA severity levels to capture diverse clinical scenarios. We exclude categorical features (gender and race indicators) from perturbation to ensure meaningful gradient estimates. For each algorithm and state, we compute saliency scores for the selected action and visualize the top 15 most important features.
+
+\subsection{Interpretability Metrics}
+
+To quantify interpretability, we define three metrics based on LEG saliency scores. First, the \textbf{maximum saliency magnitude}, computed as $\max_j |\hat{\gamma}_j|$, measures the strength of the strongest feature importance signal; higher values indicate clearer feature hierarchies and more decisive feature usage. Second, the \textbf{saliency range}, defined as $\max_j \hat{\gamma}_j - \min_j \hat{\gamma}_j$, captures the spread of importance across features; larger ranges suggest more differentiated feature usage and clearer distinctions between important and unimportant features. Third, \textbf{clinical coherence} provides a subjective assessment of whether top-ranked features align with established clinical knowledge for sepsis treatment (e.g., blood pressure and lactate levels); high coherence indicates that the policy's decision-making is clinically plausible and interpretable by domain experts.

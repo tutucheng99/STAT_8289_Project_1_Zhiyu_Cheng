@@ -1,0 +1,6 @@
+Algorithm,Survival Rate (%),Avg Return,Std Return,Avg Episode Length
+Random,95.4,13.62,6.28,9.3
+Heuristic,93.2,12.96,7.55,9.4
+BC,94.2,13.26,7.01,9.5
+CQL,94.0,13.20,7.12,9.5
+DQN,94.0,13.20,7.12,7.8
